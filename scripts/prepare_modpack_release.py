@@ -56,6 +56,8 @@ def process_archive(category, archive, output, version):
     found = set()
     max_count = 950 if category == "mods" else 20000
     total_size = 0
+    # Keep the launcher's 20,000-file limit. Large config packs require an
+    # explicit and actionable error; never silently ignore or truncate files.
     with zipfile.ZipFile(archive, "r") as source:
         for info in source.infolist():
             if info.filename in (category + "/",):
@@ -75,8 +77,17 @@ def process_archive(category, archive, output, version):
                 raise ValueError(f"Doppelter Dateiname im {category}-ZIP: {relative}")
             found.add(key)
             total_size += info.file_size
-            if info.file_size > 2 * 1024**3 or total_size > 12 * 1024**3 or len(found) > max_count:
-                raise ValueError(f"ZIP-Grenze ueberschritten: {category}")
+            if info.file_size > 2 * 1024**3:
+                raise ValueError(f"ZIP-Einzeldatei zu gross ({category}): {relative} ({info.file_size} Bytes)")
+            if total_size > 12 * 1024**3:
+                raise ValueError(f"ZIP-Inhalte zu gross ({category}): {total_size} Bytes (Maximum 12 GiB)")
+            if len(found) > max_count:
+                raise ValueError(
+                    f"Zu viele Dateien in {category}.zip: {len(found)} (maximal {max_count}). "
+                    "Der Launcher kann diese Anzahl nicht verwalten. "
+                    "Bitte Cache-, Log-, Backup- und temporaere Dateien aus der "
+                    "Config-Auswahl entfernen und das ZIP erneut erstellen."
+                )
             hash_ = hashlib.sha256()
             output_file = None
             if category == "mods":

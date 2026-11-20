@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Vorbedingungen und Entwurf pruefen
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,6 +46,23 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           gh release download "modpack-v$VERSION" --repo LaFamiliaMC/LaFamilia-Modpack --pattern 'mods.zip' --pattern 'resourcepacks.zip' --pattern 'config.zip' --dir .pack-input
+      - name: ZIP-Dateien vorab zaehlen und problematische Configs melden
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          for category in ('mods','resourcepacks','config'):
+              archive = Path('.pack-input') / (category + '.zip')
+              with ZipFile(archive) as zipped:
+                  entries = [entry for entry in zipped.infolist() if not entry.is_dir()]
+                  count = len(entries)
+                  limit = 950 if category == 'mods' else 20000
+                  total = sum(entry.file_size for entry in entries)
+                  print(f"{category}: {count} Dateien, unkomprimiert {total:,} Bytes", flush=True)
+                  if count > limit:
+                      print(f"::error::{category}.zip enthaelt {count} Dateien; die Launcher-Grenze liegt bei {limit}. Bitte nicht benoetigte Cache-, Log-, Backup- und temporaere Dateien entfernen.")
+                      raise SystemExit(1)
+          PY
       - name: Alle Dateien pruefen und manifest.json generieren
         env:
           VERSION: ${{ inputs.version }}
