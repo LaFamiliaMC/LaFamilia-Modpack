@@ -45,6 +45,20 @@ class PreparationTests(unittest.TestCase):
             self.assertEqual(len(list((out / "assets").glob("mod-*.jar"))), 1)
             self.assertEqual(next((out / "assets").glob("mod-*.jar")).read_bytes(), b"jar-data")
 
+    def test_27158_config_entries_are_supported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "config.zip"
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as z:
+                for i in range(27158):
+                    z.writestr(f"config/generated/entry_{i:05d}.json", b"{}")
+            output = root / "out"
+            output.mkdir()
+            result = process_archive("config", archive, output, "1.0.1")
+            self.assertEqual(len(result), 27158)
+            self.assertEqual(result[0]["path"], "config/generated/entry_00000.json")
+            self.assertEqual(result[-1]["path"], "config/generated/entry_27157.json")
+
     def test_duplicate_and_traversal_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

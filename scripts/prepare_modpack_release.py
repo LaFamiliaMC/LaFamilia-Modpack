@@ -54,10 +54,9 @@ def asset_url(version, name):
 def process_archive(category, archive, output, version):
     entries = []
     found = set()
-    max_count = 950 if category == "mods" else 20000
+    max_count = 950 if category == "mods" else 40000
     total_size = 0
-    # Keep the launcher's 20,000-file limit. Large config packs require an
-    # explicit and actionable error; never silently ignore or truncate files.
+    # Match the launcher limits. Do not skip, truncate or silently delete configs.
     with zipfile.ZipFile(archive, "r") as source:
         for info in source.infolist():
             if info.filename in (category + "/",):
@@ -85,7 +84,7 @@ def process_archive(category, archive, output, version):
                 raise ValueError(
                     f"Zu viele Dateien in {category}.zip: {len(found)} (maximal {max_count}). "
                     "Der Launcher kann diese Anzahl nicht verwalten. "
-                    "Bitte Cache-, Log-, Backup- und temporaere Dateien aus der "
+                    "Bitte nicht benoetigte Cache-, Log-, Backup- und temporaere Dateien aus der "
                     "Config-Auswahl entfernen und das ZIP erneut erstellen."
                 )
             hash_ = hashlib.sha256()
