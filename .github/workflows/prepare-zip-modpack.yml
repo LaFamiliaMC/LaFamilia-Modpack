@@ -93,10 +93,24 @@ jobs:
               src = Path(".pack-output/assets") / name
               if not src.is_file():
                   raise SystemExit("Quelldatei fehlt: " + str(src))
-              rows.append(str(src) + "#" + name)
-          for offset in range(0, len(rows), 10):
-              batch = rows[offset:offset+10]
-              print("Mod-Dateien hochladen:", min(offset+len(batch), len(rows)), "/", len(rows), flush=True)
+              rows.append((str(src), name, entry["size"], entry["sha256"]))
+          response = subprocess.run(
+              ["gh", "release", "view", "modpack-v" + version, "--repo",
+               "LaFamiliaMC/LaFamilia-Modpack", "--json", "assets"],
+              check=True, capture_output=True, text=True)
+          remote = {a["name"]: a for a in json.loads(response.stdout)["assets"]}
+          pending = []
+          for src, name, size, sha in rows:
+              existing = remote.get(name)
+              if existing and existing.get("size") == size and existing.get("digest") == "sha256:" + sha:
+                  continue
+              pending.append(src + "#" + name)
+          print("Vorhandene verifizierte Mods:", len(rows)-len(pending),
+                "Fehlende/abweichende:", len(pending), flush=True)
+          for offset in range(0, len(pending), 10):
+              batch = pending[offset:offset+10]
+              print("Mod-Dateien hochladen:", min(offset+len(batch), len(pending)),
+                    "/", len(pending), flush=True)
               subprocess.run(["gh", "release", "upload", "modpack-v" + version,
                   "--repo", "LaFamiliaMC/LaFamilia-Modpack", "--clobber",
                   *batch], check=True)
