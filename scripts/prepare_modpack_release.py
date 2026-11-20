@@ -115,7 +115,10 @@ def process_archive(category, archive, output, version):
             if category == "mods":
                 if written == 0:
                     raise ValueError(f"Leere Mod-JAR: {relative}")
-                asset = "mod-" + item["sha256"][:16] + "-" + relative
+                # GitHub ersetzt eckige Klammern sowie weitere Sonderzeichen
+                # in Release-Assetnamen. Verwende deshalb nur hex und ASCII.
+                # Der Originaldateiname fuer Minecraft bleibt in item["file"].
+                asset = "mod-" + item["sha256"] + ".jar"
                 if len(asset.encode("utf-8")) > 255:
                     raise ValueError(f"GitHub-Assetname zu lang: {asset}")
                 output_file.rename(output / "assets" / asset)
