@@ -56,7 +56,7 @@ jobs:
               with ZipFile(archive) as zipped:
                   entries = [entry for entry in zipped.infolist() if not entry.is_dir()]
                   count = len(entries)
-                  limit = 950 if category == 'mods' else 20000
+                  limit = 950 if category == 'mods' else 40000
                   total = sum(entry.file_size for entry in entries)
                   print(f"{category}: {count} Dateien, unkomprimiert {total:,} Bytes", flush=True)
                   if count > limit:
