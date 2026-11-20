@@ -76,7 +76,7 @@ jobs:
           expected=[*data['mods'],
              data['resourcepacks']['archive'],data['config']['archive']]
           for item in expected:
-              name=item.get('file')
+              name=item['url'].rsplit('/',1)[-1]
               if not name or name not in assets:
                   sys.exit('GitHub-Datei fehlt: '+str(name))
               value=assets[name]
