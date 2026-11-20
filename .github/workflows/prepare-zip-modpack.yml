@@ -78,7 +78,7 @@ jobs:
           # GitHub CLI interpretiert [..], ? und * in Asset-Namen als Globs.
           # Das Format PFAD#ASSETNAME setzt den gewünschten Release-Namen explizit
           # und lässt Quellpfade mit Klammern und sonstigen Zeichen unverändert.
-          # Bereits hochgeladene Assets werden per --clobber idempotent aktualisiert.
+          # Bereits SHA-256-geprüfte Assets werden beim erneuten Start übersprungen.
           python3 - <<'PY'
           import json
           import os
