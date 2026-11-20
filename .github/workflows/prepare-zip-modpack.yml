@@ -75,7 +75,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find .pack-output/assets -type f -name 'mod-*.jar' -print0 | sort -z | xargs -0 -r -n 10 gh release upload "modpack-v$VERSION" --repo LaFamiliaMC/LaFamilia-Modpack --clobber
+          # GitHub CLI interpretiert [..], ? und * in Asset-Namen als Globs.
+          # Das Format PFAD#ASSETNAME setzt den gewünschten Release-Namen explizit
+          # und lässt Quellpfade mit Klammern und sonstigen Zeichen unverändert.
+          # Bereits hochgeladene Assets werden per --clobber idempotent aktualisiert.
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import urllib.parse
+          version = os.environ["VERSION"]
+          manifest = json.loads(Path(".pack-output/manifest.json").read_text("utf-8"))
+          rows = []
+          for entry in manifest["mods"]:
+              name = urllib.parse.unquote(entry["url"].rsplit("/", 1)[-1])
+              src = Path(".pack-output/assets") / name
+              if not src.is_file():
+                  raise SystemExit("Quelldatei fehlt: " + str(src))
+              rows.append(str(src) + "#" + name)
+          for offset in range(0, len(rows), 10):
+              batch = rows[offset:offset+10]
+              print("Mod-Dateien hochladen:", min(offset+len(batch), len(rows)), "/", len(rows), flush=True)
+              subprocess.run(["gh", "release", "upload", "modpack-v" + version,
+                  "--repo", "LaFamiliaMC/LaFamilia-Modpack", "--clobber",
+                  *batch], check=True)
+          PY
       - name: Alle Assets vor Manifest-Upload pruefen
         env:
           GH_TOKEN: ${{ github.token }}
