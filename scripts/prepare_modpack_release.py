@@ -18,8 +18,8 @@ from pathlib import Path
 PACK_REPO = "LaFamiliaMC/LaFamilia-Modpack"
 CATEGORIES = ("mods", "resourcepacks", "config")
 SHA_CHUNK = 1024 * 1024
-INVALID = re.compile(r'[<>:"|?*\\\\\\x00-\\x1f]')
-RESERVED = re.compile(r'^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\\.|$)', re.I)
+INVALID = re.compile(r'[<>:"|?*\x00-\x1f]')
+RESERVED = re.compile(r'^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)', re.I)
 
 
 def digest_file(path):
@@ -123,7 +123,7 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
-    if not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", args.version):
+    if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
         parser.error("Version muss x.y.z sein")
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "assets").mkdir(exist_ok=True)
@@ -156,7 +156,7 @@ def main():
         "config": records["config"],
     }
     output_file = args.output / "manifest.json"
-    output_file.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    output_file.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"FERTIG: {len(manifest['mods'])} Mods, "
           f"{len(manifest['resourcepacks']['files'])} Resourcepacks, "
           f"{len(manifest['config']['files'])} Config-Dateien")
