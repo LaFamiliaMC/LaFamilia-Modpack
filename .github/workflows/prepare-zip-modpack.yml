@@ -1,0 +1,95 @@
+name: ZIP-Modpack fuer La Familia Launcher vorbereiten
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Bestehender Modpack-Release-Entwurf, z. B. 1.0.1'
+        required: true
+        default: '1.0.1'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: modpack-zip-conversion
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vorbedingungen und Entwurf pruefen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Versionsnummer muss x.y.z sein"
+            exit 1
+          fi
+          TAG="modpack-v$VERSION"
+          IS_DRAFT=$(gh release view "$TAG" --repo LaFamiliaMC/LaFamilia-Modpack --json isDraft --jq '.isDraft')
+          if [[ "$IS_DRAFT" != "true" ]]; then
+            echo "::error::Es darf nur ein vorhandener Release-Entwurf bearbeitet werden!"
+            exit 1
+          fi
+          mkdir -p .pack-input .pack-output
+      - name: ZIP-Dateien aus dem GitHub-Entwurf laden
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release download "modpack-v$VERSION" --repo LaFamiliaMC/LaFamilia-Modpack --pattern 'mods.zip' --pattern 'resourcepacks.zip' --pattern 'config.zip' --dir .pack-input
+      - name: Alle Dateien pruefen und manifest.json generieren
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python3 scripts/prepare_modpack_release.py --input .pack-input --output .pack-output --version "$VERSION"
+      - name: Einzelne Mod-JARs in den Release-Entwurf laden
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          find .pack-output/assets -type f -name 'mod-*.jar' -print0 | sort -z | xargs -0 -r -n 10 gh release upload "modpack-v$VERSION" --repo LaFamiliaMC/LaFamilia-Modpack --clobber
+      - name: Alle Assets vor Manifest-Upload pruefen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "modpack-v$VERSION" --repo LaFamiliaMC/LaFamilia-Modpack --json assets > .pack-output/remote-assets.json
+          python3 - <<'PY'
+          import json,sys
+          from pathlib import Path
+          data=json.loads(Path('.pack-output/manifest.json').read_text('utf-8'))
+          remote=json.loads(Path('.pack-output/remote-assets.json').read_text('utf-8'))
+          assets={a['name']:a for a in remote['assets']}
+          expected=[*data['mods'],
+             data['resourcepacks']['archive'],data['config']['archive']]
+          for item in expected:
+              name=item.get('file')
+              if not name or name not in assets:
+                  sys.exit('GitHub-Datei fehlt: '+str(name))
+              value=assets[name]
+              if value.get('size') != item['size']:
+                  sys.exit('GitHub-Dateigroesse weicht ab: '+name)
+              if value.get('digest') and value['digest'] != 'sha256:'+item['sha256']:
+                  sys.exit('GitHub-Pruefsumme weicht ab: '+name)
+          print('Alle Mod-Dateien und Archive sind auf GitHub vorhanden.')
+          PY
+      - name: manifest.json zuletzt hochladen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release upload "modpack-v$VERSION" .pack-output/manifest.json --repo LaFamiliaMC/LaFamilia-Modpack --clobber
+          echo "Entwurf vorbereitet. Bitte Release erst nach Pruefung manuell veroeffentlichen."
