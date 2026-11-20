@@ -68,7 +68,7 @@ jobs:
           set -euo pipefail
           gh release view "modpack-v$VERSION" --repo LaFamiliaMC/LaFamilia-Modpack --json assets > .pack-output/remote-assets.json
           python3 - <<'PY'
-          import json,sys
+          import json,sys,urllib.parse
           from pathlib import Path
           data=json.loads(Path('.pack-output/manifest.json').read_text('utf-8'))
           remote=json.loads(Path('.pack-output/remote-assets.json').read_text('utf-8'))
@@ -76,7 +76,7 @@ jobs:
           expected=[*data['mods'],
              data['resourcepacks']['archive'],data['config']['archive']]
           for item in expected:
-              name=item['url'].rsplit('/',1)[-1]
+              name=urllib.parse.unquote(item['url'].rsplit('/',1)[-1])
               if not name or name not in assets:
                   sys.exit('GitHub-Datei fehlt: '+str(name))
               value=assets[name]
