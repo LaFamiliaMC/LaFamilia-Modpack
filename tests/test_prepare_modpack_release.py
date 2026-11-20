@@ -40,10 +40,25 @@ class PreparationTests(unittest.TestCase):
             self.assertEqual(manifest["minecraftVersion"], "1.21.1")
             self.assertEqual(manifest["mods"][0]["path"], "mods/fabric-api.jar")
             self.assertEqual(manifest["mods"][0]["file"], "fabric-api.jar")
+            self.assertRegex(manifest["mods"][0]["url"], r"/mod-[a-f0-9]{64}\\.jar$")
             self.assertEqual(manifest["resourcepacks"]["files"][0]["path"], "resourcepacks/MyPack.zip")
             self.assertEqual(manifest["config"]["files"][0]["path"], "config/sub/settings.toml")
             self.assertEqual(len(list((out / "assets").glob("mod-*.jar"))), 1)
             self.assertEqual(next((out / "assets").glob("mod-*.jar")).read_bytes(), b"jar-data")
+
+    def test_bracket_filename_keeps_original_mod_name_but_safe_github_asset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = self.make_zip(root, "mods.zip", {
+                "mods/CameraOverhaul-v2.1.2-fabric+mc[1.21-1.21.2].jar": b"jar-test"
+            })
+            output = root / "out"
+            (output / "assets").mkdir(parents=True)
+            entries = process_archive("mods", archive, output, "1.0.1")
+            self.assertEqual(entries[0]["file"],
+                "CameraOverhaul-v2.1.2-fabric+mc[1.21-1.21.2].jar")
+            self.assertRegex(entries[0]["url"], r"/mod-[a-f0-9]{64}\\.jar$")
+            self.assertEqual(len(list((output / "assets").glob("mod-*.jar"))), 1)
 
     def test_27158_config_entries_are_supported(self):
         with tempfile.TemporaryDirectory() as tmp:
